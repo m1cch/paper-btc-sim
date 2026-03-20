@@ -20,3 +20,6 @@ services:
         value: "2"
       - key: GAMMA_SERIES_ID
         value: "10192"
+      # PostgreSQL: вставь URL из Neon/Supabase/Render Postgres — сделки и state переживут деплой (опционально).
+      - key: DATABASE_URL
+        sync: false

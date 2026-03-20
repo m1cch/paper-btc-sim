@@ -36,7 +36,7 @@ from bot.paper import (
     setup_paper_logger,
     stake_for_level,
 )
-from bot.storage import Storage
+from bot.storage import create_storage
 from bot.strategy import ENTRY, PaperStrategy, TAKE_PROFIT, entry_max_price
 
 # httpx иногда режется CDN/прокси на PaaS; trust_env=False — не брать HTTP(S)_PROXY из окружения
@@ -111,7 +111,7 @@ class BotRuntime:
         self.min_end = env_int("MIN_SECONDS_TO_END", 30)
         self.db_path = DATA_ROOT / "db" / "trades.db"
         self.log_path = DATA_ROOT / "trades.log"
-        self.storage = Storage(self.db_path)
+        self.storage = create_storage(self.db_path)
         self.paper_logger = setup_paper_logger(str(self.log_path))
         self.portfolio = PaperPortfolio(
             self.initial, self.paper_logger, on_trade=self._on_trade_closed

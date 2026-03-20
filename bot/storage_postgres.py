@@ -1,75 +1,81 @@
-"""SQLite persistence for bot state, trades, and recent price samples.
-
-При заданном DATABASE_URL (postgres://…) используется PostgreSQL — см. create_storage().
-"""
+"""PostgreSQL backend: те же таблицы, что у SQLite — данные переживают деплой на PaaS."""
 
 from __future__ import annotations
 
 import json
-import os
-import sqlite3
+import logging
 import threading
-from pathlib import Path
 from typing import Any, Collection, Optional
 
-# В БД пишется каждая закрытая нога; для дашборда эти строки не показываем (промежуточный выход перед новым входом).
-KINDS_HIDDEN_FROM_RECENT_TABLE = frozenset({"stop_reversal_exit"})
+import psycopg
+from psycopg.rows import dict_row
 
-SCHEMA = """
+logger = logging.getLogger(__name__)
+
+_PG_EXCLUDE_DEFAULT = frozenset({"stop_reversal_exit"})
+
+PG_DDL = [
+    """
 CREATE TABLE IF NOT EXISTS bot_kv (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
-);
-
+)
+""",
+    """
 CREATE TABLE IF NOT EXISTS trades (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     cycle_num INTEGER NOT NULL,
     market_slug TEXT,
     side TEXT NOT NULL,
-    entry_price REAL,
-    exit_price REAL,
-    stake REAL NOT NULL,
-    pnl REAL NOT NULL,
+    entry_price DOUBLE PRECISION,
+    exit_price DOUBLE PRECISION,
+    stake DOUBLE PRECISION NOT NULL,
+    pnl DOUBLE PRECISION NOT NULL,
     kind TEXT NOT NULL,
     created_at TEXT NOT NULL
-);
-
+)
+""",
+    """
 CREATE TABLE IF NOT EXISTS price_samples (
-    ts REAL PRIMARY KEY,
-    yes_price REAL NOT NULL,
-    no_price REAL NOT NULL
-);
-"""
+    ts DOUBLE PRECISION PRIMARY KEY,
+    yes_price DOUBLE PRECISION NOT NULL,
+    no_price DOUBLE PRECISION NOT NULL
+)
+""",
+]
 
 
-class Storage:
-    def __init__(self, db_path: Path):
-        self._path = db_path
+class PostgresStorage:
+    def __init__(self, conninfo: str):
+        self._conninfo = conninfo
         self._lock = threading.Lock()
-        db_path.parent.mkdir(parents=True, exist_ok=True)
-        with self._connect() as conn:
-            conn.executescript(SCHEMA)
+        self._ensure_schema()
 
-    def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(str(self._path))
-        conn.row_factory = sqlite3.Row
-        return conn
+    def _ensure_schema(self) -> None:
+        with self._lock:
+            with psycopg.connect(self._conninfo) as conn:
+                for ddl in PG_DDL:
+                    conn.execute(ddl)
+                conn.commit()
 
     def get_kv(self, key: str, default: Any = None) -> Any:
         with self._lock:
-            with self._connect() as conn:
+            with psycopg.connect(self._conninfo, row_factory=dict_row) as conn:
                 row = conn.execute(
-                    "SELECT value FROM bot_kv WHERE key = ?", (key,)
+                    "SELECT value FROM bot_kv WHERE key = %s", (key,)
                 ).fetchone()
                 if not row:
                     return default
-                return json.loads(row[0])
+                return json.loads(row["value"])
 
     def set_kv(self, key: str, value: Any) -> None:
         with self._lock:
-            with self._connect() as conn:
+            with psycopg.connect(self._conninfo) as conn:
                 conn.execute(
-                    "INSERT OR REPLACE INTO bot_kv (key, value) VALUES (?, ?)",
+                    """
+                    INSERT INTO bot_kv (key, value) VALUES (%s, %s)
+                    ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+                    """,
                     (key, json.dumps(value)),
                 )
                 conn.commit()
@@ -87,11 +93,12 @@ class Storage:
         created_at: str,
     ) -> int:
         with self._lock:
-            with self._connect() as conn:
-                cur = conn.execute(
+            with psycopg.connect(self._conninfo) as conn:
+                row = conn.execute(
                     """
                     INSERT INTO trades (cycle_num, market_slug, side, entry_price, exit_price, stake, pnl, kind, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id
                     """,
                     (
                         cycle_num,
@@ -104,9 +111,9 @@ class Storage:
                         kind,
                         created_at,
                     ),
-                )
+                ).fetchone()
                 conn.commit()
-                return int(cur.lastrowid)
+                return int(row[0]) if row else 0
 
     def recent_trades(
         self,
@@ -114,21 +121,20 @@ class Storage:
         *,
         exclude_kinds: Optional[Collection[str]] = None,
     ) -> list[dict[str, Any]]:
-        """Список закрытых сделок. По умолчанию скрывает промежуточные выходы по стопу разворота."""
         if exclude_kinds is not None:
             exclude = frozenset(exclude_kinds)
         else:
-            exclude = KINDS_HIDDEN_FROM_RECENT_TABLE
+            exclude = _PG_EXCLUDE_DEFAULT
         with self._lock:
-            with self._connect() as conn:
+            with psycopg.connect(self._conninfo, row_factory=dict_row) as conn:
                 if exclude:
-                    ph = ",".join("?" * len(exclude))
+                    ph = ",".join(["%s"] * len(exclude))
                     rows = conn.execute(
                         f"""
                         SELECT * FROM trades
                         WHERE kind NOT IN ({ph})
                         ORDER BY created_at DESC, id DESC
-                        LIMIT ?
+                        LIMIT %s
                         """,
                         (*tuple(exclude), limit),
                     ).fetchall()
@@ -137,7 +143,7 @@ class Storage:
                         """
                         SELECT * FROM trades
                         ORDER BY created_at DESC, id DESC
-                        LIMIT ?
+                        LIMIT %s
                         """,
                         (limit,),
                     ).fetchall()
@@ -145,22 +151,25 @@ class Storage:
 
     def add_price_sample(self, ts: float, yes: float, no: float) -> None:
         with self._lock:
-            with self._connect() as conn:
+            with psycopg.connect(self._conninfo) as conn:
                 conn.execute(
-                    "INSERT OR REPLACE INTO price_samples (ts, yes_price, no_price) VALUES (?, ?, ?)",
+                    """
+                    INSERT INTO price_samples (ts, yes_price, no_price) VALUES (%s, %s, %s)
+                    ON CONFLICT (ts) DO UPDATE SET yes_price = EXCLUDED.yes_price, no_price = EXCLUDED.no_price
+                    """,
                     (ts, yes, no),
                 )
                 conn.execute(
-                    "DELETE FROM price_samples WHERE ts < ?",
+                    "DELETE FROM price_samples WHERE ts < %s",
                     (ts - 900.0,),
                 )
                 conn.commit()
 
     def load_price_samples_since(self, since_ts: float) -> list[dict[str, float]]:
         with self._lock:
-            with self._connect() as conn:
+            with psycopg.connect(self._conninfo, row_factory=dict_row) as conn:
                 rows = conn.execute(
-                    "SELECT ts, yes_price, no_price FROM price_samples WHERE ts >= ? ORDER BY ts ASC",
+                    "SELECT ts, yes_price, no_price FROM price_samples WHERE ts >= %s ORDER BY ts ASC",
                     (since_ts,),
                 ).fetchall()
                 return [
@@ -170,7 +179,7 @@ class Storage:
 
     def clear_all_data(self) -> None:
         with self._lock:
-            with self._connect() as conn:
+            with psycopg.connect(self._conninfo) as conn:
                 conn.execute("DELETE FROM trades")
                 conn.execute("DELETE FROM price_samples")
                 conn.execute("DELETE FROM bot_kv")
@@ -178,12 +187,12 @@ class Storage:
 
     def win_loss_counts(self) -> tuple[int, int]:
         with self._lock:
-            with self._connect() as conn:
+            with psycopg.connect(self._conninfo) as conn:
                 row = conn.execute(
                     """
                     SELECT
-                      COALESCE(SUM(CASE WHEN pnl > 0.000001 THEN 1 ELSE 0 END), 0),
-                      COALESCE(SUM(CASE WHEN pnl < -0.000001 THEN 1 ELSE 0 END), 0)
+                      COALESCE(SUM(CASE WHEN pnl > 0.000001 THEN 1 ELSE 0 END), 0)::bigint,
+                      COALESCE(SUM(CASE WHEN pnl < -0.000001 THEN 1 ELSE 0 END), 0)::bigint
                     FROM trades
                     """
                 ).fetchone()
@@ -192,30 +201,29 @@ class Storage:
                 return int(row[0]), int(row[1])
 
     def trade_stats(self) -> dict[str, Any]:
-        """Сводка по закрытым сделкам в БД (открытая нога в trades не попадает)."""
         with self._lock:
-            with self._connect() as conn:
+            with psycopg.connect(self._conninfo) as conn:
                 total = conn.execute(
                     "SELECT COUNT(*) FROM trades"
                 ).fetchone()[0]
                 rev = conn.execute(
-                    "SELECT COUNT(*) FROM trades WHERE kind = ?",
+                    "SELECT COUNT(*) FROM trades WHERE kind = %s",
                     ("stop_reversal_exit",),
                 ).fetchone()[0]
                 tp = conn.execute(
-                    "SELECT COUNT(*) FROM trades WHERE kind = ?",
+                    "SELECT COUNT(*) FROM trades WHERE kind = %s",
                     ("take_profit",),
                 ).fetchone()[0]
                 msw = conn.execute(
-                    "SELECT COUNT(*) FROM trades WHERE kind = ?",
+                    "SELECT COUNT(*) FROM trades WHERE kind = %s",
                     ("market_switch",),
                 ).fetchone()[0]
                 mx = conn.execute(
-                    "SELECT COUNT(*) FROM trades WHERE kind = ?",
+                    "SELECT COUNT(*) FROM trades WHERE kind = %s",
                     ("max_reversal_close",),
                 ).fetchone()[0]
                 ust = conn.execute(
-                    "SELECT COUNT(*) FROM trades WHERE kind = ?",
+                    "SELECT COUNT(*) FROM trades WHERE kind = %s",
                     ("user_stop",),
                 ).fetchone()[0]
                 row = conn.execute(
@@ -231,13 +239,3 @@ class Storage:
                     "user_stops_total": int(ust),
                     "sum_closed_pnl": round(sum_pnl, 2),
                 }
-
-
-def create_storage(db_path: Path) -> Any:
-    """SQLite по пути на диске; при PostgreSQL `DATABASE_URL` — данные переживают деплой на Render и т.п."""
-    url = os.getenv("DATABASE_URL", "").strip()
-    if url.startswith(("postgres://", "postgresql://")):
-        from bot.storage_postgres import PostgresStorage
-
-        return PostgresStorage(url)
-    return Storage(db_path)
