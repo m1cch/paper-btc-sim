@@ -114,7 +114,14 @@ class BotRuntime:
         self.losses = 0
         self.markers: deque = deque(maxlen=120)
         self.ui_log: deque[str] = deque(maxlen=200)
-        self.price_points: deque = deque(maxlen=4000)
+        self._price_points_max = max(2000, min(100_000, env_int("PRICE_POINTS_MAX", 15_000)))
+        self._chart_snapshot_points = max(
+            120,
+            min(self._price_points_max, env_int("CHART_SNAPSHOT_POINTS", 6_000)),
+        )
+        self.price_points: deque = deque(maxlen=self._price_points_max)
+        # Увеличивается при api_reset — клиент сбрасывает накопленную историю графика
+        self.chart_history_seq: int = 0
         self._lock = asyncio.Lock()
         self._task: Optional[asyncio.Task] = None
         self._running = False
@@ -348,7 +355,8 @@ class BotRuntime:
                 "После arm — пауза и подтверждение тиков (ENTRY_DELAY_AFTER_ARM_SECONDS, ENTRY_CONFIRM_TICKS). "
                 "Тейк 0,90 — TAKE_PROFIT_CONFIRM_TICKS подряд тиков. После TP — без входов до следующего окна."
             ),
-            "price_history": list(self.price_points)[-600:],
+            "chart_history_seq": self.chart_history_seq,
+            "price_history": list(self.price_points)[-self._chart_snapshot_points :],
             "markers": list(self.markers)[-80:],
             "stats": self.storage.trade_stats(),
             "event_log": [str(x) for x in self.ui_log],
@@ -594,6 +602,7 @@ class BotRuntime:
             self.markers.clear()
             self.ui_log.clear()
             self.price_points.clear()
+            self.chart_history_seq += 1
             self._events_cache.clear()
             self._events_cache_ts = 0.0
             self._last_sec_left = None

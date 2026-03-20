@@ -445,6 +445,25 @@
     let chartPayload = { history: [], markers: [] };
     let lastChartMeta = { winStart: null, winEnd: null };
     let chartLayout = { bufW: 0, bufH: 0, dpr: 0 };
+    /** Накопленная история на клиенте: не затираем линию при коротком/пустом снимке с сервера */
+    let chartMerged = [];
+    let lastChartHistorySeq = -1;
+    const CHART_MERGE_MAX = 12000;
+
+    function mergePriceHistory(incoming) {
+      if (!incoming || !incoming.length) return;
+      const m = new Map();
+      for (const p of chartMerged) {
+        if (p && typeof p.ts === "number") m.set(p.ts, p);
+      }
+      for (const p of incoming) {
+        if (p && typeof p.ts === "number") m.set(p.ts, p);
+      }
+      chartMerged = Array.from(m.values()).sort((a, b) => a.ts - b.ts);
+      if (chartMerged.length > CHART_MERGE_MAX) {
+        chartMerged = chartMerged.slice(-CHART_MERGE_MAX);
+      }
+    }
 
     function setConnText(live) {
       const el = $("conn");
@@ -611,7 +630,13 @@
         });
       }
 
-      chartPayload = { history: d.price_history || [], markers: d.markers || [] };
+      const seq = d.chart_history_seq != null ? Number(d.chart_history_seq) : 0;
+      if (seq !== lastChartHistorySeq) {
+        lastChartHistorySeq = seq;
+        chartMerged = [];
+      }
+      mergePriceHistory(d.price_history || []);
+      chartPayload = { history: chartMerged, markers: d.markers || [] };
       lastChartMeta = {
         winStart: d.window_start_ts != null ? d.window_start_ts : null,
         winEnd: d.window_end_ts != null ? d.window_end_ts : null,
