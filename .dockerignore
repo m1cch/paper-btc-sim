@@ -1,0 +1,11 @@
+__pycache__
+*.py[cod]
+.venv
+.git
+.env
+.env.*
+*.db
+db/*.db
+trades.log
+*.md
+.DS_Store
