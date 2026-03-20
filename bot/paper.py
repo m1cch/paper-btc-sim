@@ -10,7 +10,7 @@ from typing import Any, Callable, Optional
 
 
 def _base_stake_usd() -> float:
-    return float(os.getenv("BASE_STAKE_USD", "1") or "1")
+    return float(os.getenv("BASE_STAKE_USD", "2") or "2")
 
 
 def stake_for_level(level: int) -> float:

@@ -16,5 +16,7 @@ services:
         value: "true"
       - key: INITIAL_DEPOSIT
         value: "300"
+      - key: BASE_STAKE_USD
+        value: "2"
       - key: GAMMA_SERIES_ID
         value: "10192"
