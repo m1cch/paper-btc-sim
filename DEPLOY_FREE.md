@@ -27,6 +27,35 @@
 5. **Переменные** (уже в `render.yaml`, при необходимости правь в Dashboard):  
    `AUTO_TRADE`, `INITIAL_DEPOSIT`, `GAMMA_SERIES_ID`.
 
+## После создания Blueprint — что делать дальше
+
+1. **Дождись деплоя**  
+   В Render: **Dashboard** → твой сервис **`paper-btc-sim`** → вкладка **Logs**.  
+   Успех: строки вида `Uvicorn running on http://0.0.0.0:...` и `Application startup complete`.  
+   Ошибка сборки — смотри лог **Build** (Dockerfile, зависимости).
+
+2. **Открой URL**  
+   В карточке сервиса сверху ссылка **`https://paper-btc-sim-xxxx.onrender.com`** (точное имя у тебя в Dashboard).  
+   Должен открыться дашборд. На **free** первый заход после простоя может **подвиснуть ~1 мин** — инстанс просыпается.
+
+3. **Проверка API**  
+   В браузере: `https://твой-сервис.onrender.com/api/health` → JSON с `"ok": true`.  
+   Если 502/503 — подожди минуту и обнови (сервис ещё стартует).
+
+4. **Проверка в браузере**  
+   В шапке дашборда — **WebSocket · live**, бегут цены YES/NO. Если «Переподключение…» — подожди 10–20 сек и обнови страницу.
+
+5. **Переменные** (если нужно)  
+   **Settings** → **Environment** → правь `AUTO_TRADE`, `INITIAL_DEPOSIT`, `GAMMA_SERIES_ID` → **Save deploys** (пересоберётся).
+
+6. **Обновления**  
+   Пуш в `main` на GitHub обычно **автоматически** пересобирает сервис (если в репо включён auto-deploy). Иначе: **Manual Deploy** → **Deploy latest commit**.
+
+7. **Если что-то не так**  
+   - **Build failed** — лог сборки Docker; приватный репо: проверь [GitHub App Render](https://github.com/apps/render).  
+   - **Health check failed** — в `render.yaml` указан `healthCheckPath: /api/health`; убедись, что контейнер слушает `PORT` (у нас так).  
+   - **Пустой рынок** — иногда Gamma API не отдаёт окно; подожди 1–2 минуты.
+
 ## Локально перед пушем
 
 ```bash
