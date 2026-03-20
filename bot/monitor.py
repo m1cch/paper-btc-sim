@@ -15,6 +15,8 @@ logger = logging.getLogger(__name__)
 
 GAMMA_EVENTS_URL = "https://gamma-api.polymarket.com/events"
 CLOB_MIDPOINT_URL = "https://clob.polymarket.com/midpoint"
+# На части хостингов короткий таймаут даёт постоянные null mid
+CLOB_TIMEOUT_SECONDS = 12.0
 
 
 @dataclass
@@ -156,7 +158,9 @@ def market_snapshot_for_slug(
 async def get_midpoint(client: httpx.AsyncClient, token_id: str) -> Optional[float]:
     try:
         r = await client.get(
-            CLOB_MIDPOINT_URL, params={"token_id": token_id}, timeout=3.0
+            CLOB_MIDPOINT_URL,
+            params={"token_id": token_id},
+            timeout=CLOB_TIMEOUT_SECONDS,
         )
         if r.status_code != 200:
             return None

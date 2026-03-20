@@ -39,6 +39,16 @@ from bot.paper import (
 from bot.storage import Storage
 from bot.strategy import ENTRY, PaperStrategy, TAKE_PROFIT, entry_max_price
 
+# httpx иногда режется CDN/прокси на PaaS; trust_env=False — не брать HTTP(S)_PROXY из окружения
+HTTPX_DEFAULT_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (compatible; PaperBtcSim/1.2; +https://github.com/m1cch/paper-btc-sim) "
+        "httpx"
+    ),
+    "Accept": "application/json",
+}
+HTTPX_TIMEOUT = httpx.Timeout(45.0, connect=20.0)
+
 ROOT = Path(__file__).resolve().parent
 load_dotenv(ROOT / ".env")
 
@@ -122,6 +132,10 @@ class BotRuntime:
         self.price_points: deque = deque(maxlen=self._price_points_max)
         # Увеличивается при api_reset — клиент сбрасывает накопленную историю графика
         self.chart_history_seq: int = 0
+        self._tick_diag: str = ""
+        self._last_good_market: Optional[MarketSnapshot] = None
+        self._last_good_yes: Optional[float] = None
+        self._last_good_no: Optional[float] = None
         self._lock = asyncio.Lock()
         self._task: Optional[asyncio.Task] = None
         self._running = False
@@ -361,13 +375,24 @@ class BotRuntime:
             "stats": self.storage.trade_stats(),
             "event_log": [str(x) for x in self.ui_log],
             "recent_trades": self.storage.recent_trades(30),
+            "tick_diag": self._tick_diag,
         }
+        if market is not None and yes is not None and no is not None:
+            self._last_good_market = market
+            self._last_good_yes = yes
+            self._last_good_no = no
         self._last_snapshot = snap
         return snap
 
     async def _loop(self) -> None:
         limits = httpx.Limits(max_keepalive_connections=10, max_connections=20)
-        async with httpx.AsyncClient(limits=limits) as client:
+        async with httpx.AsyncClient(
+            limits=limits,
+            headers=HTTPX_DEFAULT_HEADERS,
+            timeout=HTTPX_TIMEOUT,
+            follow_redirects=True,
+            trust_env=False,
+        ) as client:
             while self._running:
                 async with self._lock:
                     try:
@@ -510,9 +535,18 @@ class BotRuntime:
                             if must_persist:
                                 self._persist()
                                 self._last_persist_ts = now_mono
+                            if yes is None or no is None:
+                                self._tick_diag = (
+                                    "CLOB: нет mid (сеть/таймаут) — проверь логи Render"
+                                )
+                            else:
+                                self._tick_diag = ""
                             self.build_snapshot(m_work, yes, no)
                         else:
                             self._last_sec_left = None
+                            self._tick_diag = (
+                                f"Нет активного 15m окна в Gamma (событий: {len(events)})"
+                            )
                             self.build_snapshot(None, None, None)
                             now_mono = time.time()
                             if now_mono - self._last_persist_ts >= self.persist_debounce:
@@ -520,7 +554,14 @@ class BotRuntime:
                                 self._last_persist_ts = now_mono
                     except Exception as e:
                         log.exception("bot tick: %s", e)
-                        self.ui_log.append(f"Ошибка: {e}")
+                        err_msg = f"Ошибка: {e}"
+                        self.ui_log.append(err_msg)
+                        self._tick_diag = err_msg[:500]
+                        self.build_snapshot(
+                            self._last_good_market,
+                            self._last_good_yes,
+                            self._last_good_no,
+                        )
 
                 await self.broadcast()
                 await asyncio.sleep(self.refresh)
@@ -598,7 +639,6 @@ class BotRuntime:
             self.low_balance_warned = False
             self.wins = 0
             self.losses = 0
-            self.auto_trade = env_bool("AUTO_TRADE", False)
             self.markers.clear()
             self.ui_log.clear()
             self.price_points.clear()

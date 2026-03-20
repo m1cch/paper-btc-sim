@@ -519,7 +519,7 @@
       if (d.server_time_ms != null) {
         const ms = d.server_time_ms % 1000;
         const poll = d.poll_interval_ms != null ? d.poll_interval_ms : "—";
-        $("tick-line").textContent =
+        let tickMsg =
           "Сервер: " +
           new Date(d.server_time_ms).toLocaleTimeString("ru-RU", { hour12: false }) +
           "." +
@@ -527,6 +527,8 @@
           " · опрос " +
           poll +
           " мс";
+        if (d.tick_diag) tickMsg += " · " + d.tick_diag;
+        $("tick-line").textContent = tickMsg;
       }
 
       $("bal").textContent = (d.balance != null) ? d.balance.toFixed(2) + "$" : "—";
