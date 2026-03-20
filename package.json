@@ -1,5 +1,5 @@
 {
-  "name": "polymarket-paper-dashboard",
+  "name": "paper-btc-dashboard",
   "private": true,
   "scripts": {
     "build": "node scripts/vercel-api-config.mjs"

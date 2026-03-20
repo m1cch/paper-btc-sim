@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Paper — Polymarket BTC</title>
+  <title>Paper — BTC 15m</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600&display=swap" rel="stylesheet" />
@@ -308,7 +308,7 @@
         <span class="dot" aria-hidden="true"></span>
         <div>
           <h1>Paper trading mode</h1>
-          <p id="market-line">BTC · Polymarket · —</p>
+          <p id="market-line">BTC · 15m окна · —</p>
         </div>
       </div>
       <div class="actions">
@@ -517,7 +517,7 @@
       el.className = "stat-val " + (pr > 0 ? "pos" : pr < 0 ? "neg" : "");
       $("cycles").textContent = d.cycles ?? "—";
       $("winrate").textContent = (d.winrate != null) ? d.winrate.toFixed(0) + "%" : "—";
-      $("market-line").textContent = "BTC · Polymarket · " + (d.market_title || "—");
+      $("market-line").textContent = "BTC · 15m окна · " + (d.market_title || "—");
       $("cycle-num").textContent = "#" + (d.cycles ?? "—");
 
       const st = d.stats || {};

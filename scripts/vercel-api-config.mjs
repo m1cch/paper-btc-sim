@@ -1,6 +1,6 @@
 /**
  * Пишет dashboard/api-config.js из переменной API_BASE_URL (Vercel → Project Settings → Environment Variables).
- * Пример: https://polymarket-bot-xxxx.up.railway.app (без завершающего слэша)
+ * Пример: https://your-app.onrender.com (без завершающего слэша)
  */
 import { writeFileSync } from "fs";
 import { dirname, join } from "path";

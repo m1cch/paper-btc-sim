@@ -15,7 +15,7 @@
 
 ## 1. Поднять бэкенд
 
-См. [DEPLOY.md](./DEPLOY.md). Получите публичный HTTPS URL, например `https://polymarket-bot-production.up.railway.app`.
+См. [DEPLOY.md](./DEPLOY.md). Получите публичный HTTPS URL бэкенда (например `https://your-app.onrender.com`).
 
 В **Environment** бэкенда добавьте:
 
@@ -34,7 +34,7 @@ CORS_ORIGINS=https://foo.vercel.app,https://www.bar.com
 ## 2. Проект на Vercel
 
 1. [vercel.com](https://vercel.com) → **Add New** → **Project** → импорт репозитория.
-2. **Root Directory**: `polymarket-bot` (если в репо только эта папка — оставьте корень).
+2. **Root Directory**: корень репо или подпапка с `vercel.json` и `dashboard/`.
 3. Framework: **Other** (или авто с `vercel.json`).
 4. **Build Command**: `npm run build` (уже в `vercel.json`).
 5. **Output Directory**: `dashboard`.
@@ -42,7 +42,7 @@ CORS_ORIGINS=https://foo.vercel.app,https://www.bar.com
 
    | Name | Value |
    |------|--------|
-   | `API_BASE_URL` | `https://ваш-бэкенд.up.railway.app` — **без** слэша в конце |
+   | `API_BASE_URL` | `https://ваш-бэкенд.onrender.com` — **без** слэша в конце |
 
 7. **Deploy**.
 
@@ -56,7 +56,7 @@ CORS_ORIGINS=https://foo.vercel.app,https://www.bar.com
 ## Локально как на Vercel
 
 ```bash
-cd polymarket-bot
+cd paper-btc-sim
 API_BASE_URL=https://your-backend.example.com npm run build
 # затем откройте dashboard/index.html через любой статический сервер или смотрите на Vercel preview
 ```

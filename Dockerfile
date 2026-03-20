@@ -1,4 +1,4 @@
-# Paper bot: FastAPI + uvicorn. Порт: переменная PORT (хостинг) или DASHBOARD_PORT.
+# Paper BTC Sim: FastAPI + uvicorn. Порт: PORT (хостинг) или DASHBOARD_PORT.
 FROM python:3.12-slim-bookworm
 
 WORKDIR /app

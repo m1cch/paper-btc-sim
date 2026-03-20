@@ -13,19 +13,19 @@
 | `DATA_DIR` | Каталог для `db/trades.db` и `trades.log`. В Docker по умолчанию лучше **`/data`** + диск у хостинга, иначе после редеплоя история обнулится. |
 | Остальное | Скопируйте из `.env.example` ( `AUTO_TRADE`, `GAMMA_SERIES_ID`, `INITIAL_DEPOSIT`, … ). |
 
-Секретов для **paper**-режима нет; реальные ключи Polymarket не используются.
+Секретов для **paper**-режима нет; реальные торговые ключи не используются.
 
 ## Вариант A — Docker (универсально)
 
-Из каталога `polymarket-bot`:
+Из корня репозитория:
 
 ```bash
-docker build -t polymarket-paper-bot .
+docker build -t paper-btc-sim .
 docker run --rm -p 8080:8080 \
   -e AUTO_TRADE=true \
   -e DATA_DIR=/data \
-  -v polymarket-data:/data \
-  polymarket-paper-bot
+  -v paper-btc-data:/data \
+  paper-btc-sim
 ```
 
 Откройте `http://localhost:8080`.
@@ -33,7 +33,7 @@ docker run --rm -p 8080:8080 \
 ## Вариант B — [Railway](https://railway.app)
 
 1. New Project → **Deploy from GitHub** (или загрузка репозитория).
-2. Укажите **Root Directory**: `polymarket-bot`, если репозиторий — монорепо.
+2. Укажите **Root Directory** подпапку проекта, если репозиторий — монорепо.
 3. Railway подхватит **Dockerfile** сама.
 4. В **Variables** добавьте, например: `AUTO_TRADE=true`, `INITIAL_DEPOSIT=300`, при желании `DATA_DIR=/data` и подключите **Volume**, смонтированный в `/data` (тогда история сделок сохранится между деплоями).
 
@@ -42,7 +42,7 @@ docker run --rm -p 8080:8080 \
 ## Вариант C — [Render](https://render.com)
 
 1. **New** → **Web Service** → подключите репозиторий.
-2. **Root Directory**: `polymarket-bot`.
+2. **Root Directory**: корень репо или подпапка с `Dockerfile`.
 3. **Runtime**: Docker **или** Native: Build `pip install -r requirements.txt`, Start `uvicorn main:app --host 0.0.0.0 --port $PORT`.
 4. Добавьте env vars (как в Railway). Для постоянной БД: **Disk** → mount path, например `/data`, и переменная `DATA_DIR=/data`.
 
@@ -51,7 +51,7 @@ docker run --rm -p 8080:8080 \
 ## Вариант D — [Fly.io](https://fly.io)
 
 ```bash
-cd polymarket-bot
+cd paper-btc-sim
 fly launch --dockerfile Dockerfile
 # Добавьте volume для /data и DATA_DIR=/data в fly.toml / secrets при необходимости.
 ```

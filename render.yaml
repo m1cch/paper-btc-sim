@@ -1,10 +1,10 @@
 # Бесплатный деплой на Render.com (Docker).
-# Репозиторий: корень = эта папка polymarket-bot (см. DEPLOY_FREE.md).
+# Репозиторий: корень репо = эта папка проекта (см. DEPLOY_FREE.md).
 # https://render.com/docs/blueprint-spec
 
 services:
   - type: web
-    name: polymarket-paper-bot
+    name: paper-btc-sim
     runtime: docker
     plan: free
     region: frankfurt

@@ -1,4 +1,4 @@
-"""Resolve current BTC 15m Up/Down market and fetch midpoint prices from Polymarket public APIs."""
+"""Resolve current BTC 15m Up/Down market and fetch midpoints from public Gamma/CLOB HTTP APIs."""
 
 from __future__ import annotations
 

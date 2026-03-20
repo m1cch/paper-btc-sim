@@ -1,4 +1,4 @@
-"""FastAPI app: paper Polymarket bot, WebSocket dashboard, SQLite persistence."""
+"""FastAPI app: paper BTC sim, WebSocket dashboard, SQLite persistence."""
 
 from __future__ import annotations
 
@@ -621,7 +621,7 @@ async def lifespan(app: FastAPI):
     await runtime.stop_task()
 
 
-app = FastAPI(title="Polymarket Paper Bot", lifespan=lifespan)
+app = FastAPI(title="Paper BTC Sim", lifespan=lifespan)
 
 _cors_origins = os.getenv("CORS_ORIGINS", "").strip()
 if _cors_origins:
@@ -687,7 +687,7 @@ async def api_auto_trade(body: dict[str, Any]):
 async def api_health():
     return {
         "ok": True,
-        "name": "polymarket-paper-bot",
+        "name": "paper-btc-sim",
         "version": BOT_VERSION,
     }
 

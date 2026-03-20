@@ -1,18 +1,17 @@
-# Polymarket paper bot
+# Paper BTC Sim
 
-Виртуальный бот по BTC 15m окнам Polymarket: **FastAPI**, дашборд, **WebSocket**, SQLite. Реальные сделки не отправляются.
+Виртуальный трейдер по **BTC 15m** окнам: **FastAPI**, дашборд, **WebSocket**, SQLite. Реальные ордера не отправляются.
 
-## Развернуть бесплатно на Render (одна кнопка)
+## Развернуть на Render
 
-1. Нажми кнопку ниже (нужен аккаунт [Render](https://render.com), вход через GitHub).
-2. Подключи репозиторий, если спросит — **Approve**.
-3. Render подхватит [`render.yaml`](./render.yaml) и поднимет сервис. Через пару минут открой выданный URL `https://….onrender.com`.
+1. Нажми кнопку (аккаунт [Render](https://render.com), вход через GitHub).
+2. Подтверди деплой по `render.yaml`.
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/m1cch/polymarket-paper-bot)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/m1cch/paper-btc-sim)
 
-Репозиторий: **https://github.com/m1cch/polymarket-paper-bot**
+Репозиторий: **https://github.com/m1cch/paper-btc-sim**
 
-Подробнее: [DEPLOY_FREE.md](./DEPLOY_FREE.md) · Docker: [DEPLOY.md](./DEPLOY.md) · UI только на Vercel: [DEPLOY_VERCEL.md](./DEPLOY_VERCEL.md)
+Подробнее: [DEPLOY_FREE.md](./DEPLOY_FREE.md) · [DEPLOY.md](./DEPLOY.md) · UI на Vercel: [DEPLOY_VERCEL.md](./DEPLOY_VERCEL.md)
 
 ## Локально
 
@@ -23,4 +22,4 @@ cp .env.example .env
 python main.py
 ```
 
-Открой `http://127.0.0.1:8080` (или `DASHBOARD_PORT` из `.env`).
+Открой `http://127.0.0.1:8080` (или порт из `.env`).
